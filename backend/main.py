@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 from config import settings
 from database import init_db, get_db
-from routes import auth, users, playlists, user_data, rulesets
+from routes import auth, users, playlists, user_data, rulesets, chat
 
 
 @asynccontextmanager
@@ -36,9 +36,10 @@ app = FastAPI(
 )
 
 # CORS middleware
+cors_origins = ["*"] if settings.allowed_origins == "*" else [origin.strip() for origin in settings.allowed_origins.split(",")]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -59,6 +60,7 @@ app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(playlists.router, prefix="/api/playlists", tags=["playlists"])
 app.include_router(user_data.router, prefix="/api/user", tags=["user-data"])
 app.include_router(rulesets.router, prefix="/api/rulesets", tags=["rulesets"])
+app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
 
 
 @app.get("/")
