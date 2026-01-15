@@ -18,8 +18,13 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./playlist_builder.db"
     
     # Application URLs
-    frontend_url: str = "http://localhost:5173"
     backend_url: str = "http://localhost:8000"
+    
+    # CORS Configuration
+    allowed_origins: str = "*"  # Comma-separated list of allowed origins, or "*" for all
+    
+    # Frontend URL (optional, for OAuth redirects)
+    frontend_url: Optional[str] = None
     
     # Security Configuration
     session_secret: str = "change-me-in-production"

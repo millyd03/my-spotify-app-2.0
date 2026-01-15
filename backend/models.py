@@ -117,3 +117,28 @@ class UserArtistsResponse(BaseModel):
 class UserPodcastsResponse(BaseModel):
     """Response with user's saved podcasts."""
     podcasts: List[PodcastInfo]
+
+
+# Chat Models
+class ChatMessage(BaseModel):
+    """Chat message model."""
+    role: str  # "user" or "assistant"
+    content: str
+    timestamp: Optional[datetime] = None
+
+
+class ChatRequest(BaseModel):
+    """Request to send a chat message."""
+    message: str = Field(..., min_length=1, description="User's chat message")
+
+
+class ChatResponse(BaseModel):
+    """Response from chat."""
+    message: str = Field(..., description="Assistant's response message")
+    action_type: Optional[str] = Field(None, description="Type of action taken: 'playlist_created', 'ruleset_created', 'ruleset_updated', 'ruleset_deleted', 'ruleset_listed', or None")
+    action_data: Optional[Dict[str, Any]] = Field(None, description="Data related to the action (playlist info, ruleset info, etc.)")
+
+
+class ChatHistoryResponse(BaseModel):
+    """Response with chat history."""
+    messages: List[ChatMessage]

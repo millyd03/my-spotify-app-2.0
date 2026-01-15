@@ -1,7 +1,7 @@
-# Startup script for Spotify Gemini Playlist Builder
-# Kills existing processes and starts backend and frontend servers
+# Startup script for Spotify Agent Service
+# Kills existing processes and starts backend server
 
-Write-Host "🚀 Starting Spotify Gemini Playlist Builder..." -ForegroundColor Cyan
+Write-Host "🚀 Starting Spotify Agent Service..." -ForegroundColor Cyan
 Write-Host ""
 
 # Function to kill process on a specific port
@@ -37,7 +37,6 @@ function Kill-ProcessOnPort {
 # Kill existing processes
 Write-Host "Cleaning up existing processes..." -ForegroundColor Cyan
 Kill-ProcessOnPort -Port 8000
-Kill-ProcessOnPort -Port 5173
 Start-Sleep -Seconds 1
 Write-Host ""
 
@@ -51,32 +50,9 @@ try {
     exit 1
 }
 
-# Check if Node.js is installed
-try {
-    $nodeVersion = node --version 2>&1
-    Write-Host "✓ Node.js found: $nodeVersion" -ForegroundColor Green
-} catch {
-    Write-Host "✗ Node.js not found. Please install Node.js." -ForegroundColor Red
-    exit 1
-}
-
-# Check if npm is installed
-try {
-    $npmVersion = npm --version 2>&1
-    Write-Host "✓ npm found: v$npmVersion" -ForegroundColor Green
-} catch {
-    Write-Host "✗ npm not found. Please install npm." -ForegroundColor Red
-    exit 1
-}
-
-# Verify directories exist
+# Verify backend directory exists
 if (-not (Test-Path "backend")) {
     Write-Host "✗ Backend directory not found!" -ForegroundColor Red
-    exit 1
-}
-
-if (-not (Test-Path "frontend")) {
-    Write-Host "✗ Frontend directory not found!" -ForegroundColor Red
     exit 1
 }
 
@@ -104,30 +80,11 @@ python main.py
 "@
 
 Start-Process powershell -ArgumentList "-NoExit", "-Command", $backendScript
-Start-Sleep -Seconds 2
-
-# Start Frontend
-Write-Host "Starting frontend server..." -ForegroundColor Cyan
-$frontendScript = @"
-`$ErrorActionPreference = 'Stop'
-cd '$PWD\frontend'
-
-# Check if node_modules exists
-if (-not (Test-Path 'node_modules')) {
-    Write-Host 'Installing npm dependencies...' -ForegroundColor Yellow
-    npm install
-}
-
-Write-Host 'Starting Vite dev server on http://localhost:5173' -ForegroundColor Green
-npm run dev
-"@
-
-Start-Process powershell -ArgumentList "-NoExit", "-Command", $frontendScript
 
 Write-Host ""
-Write-Host "✓ Backend and frontend servers are starting in separate windows" -ForegroundColor Green
+Write-Host "✓ Backend server is starting in a new window" -ForegroundColor Green
 Write-Host ""
-Write-Host "Backend:  http://localhost:8000" -ForegroundColor Cyan
-Write-Host "Frontend: http://localhost:5173" -ForegroundColor Cyan
+Write-Host "Backend API: http://localhost:8000" -ForegroundColor Cyan
+Write-Host "API Docs:    http://localhost:8000/docs" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Press Ctrl+C in the respective windows to stop each server." -ForegroundColor Gray
+Write-Host "Press Ctrl+C in the server window to stop it." -ForegroundColor Gray
