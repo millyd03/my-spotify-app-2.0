@@ -132,8 +132,21 @@ async def callback(
     # Set active user in session
     set_active_user_id(request, user.id)
     
-    # Redirect to frontend
-    return RedirectResponse(url=f"{settings.frontend_url}/?logged_in=true")
+    # Redirect to frontend if configured, otherwise return JSON
+    if settings.frontend_url:
+        return RedirectResponse(url=f"{settings.frontend_url}/?logged_in=true")
+    else:
+        from models import UserResponse
+        return {
+            "message": "Authentication successful",
+            "user": UserResponse(
+                id=user.id,
+                spotify_user_id=user.spotify_user_id,
+                display_name=user.display_name,
+                email=user.email,
+                created_at=user.created_at
+            )
+        }
 
 
 @router.post("/logout")
