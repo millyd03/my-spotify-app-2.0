@@ -1,5 +1,5 @@
 """Ruleset management routes."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Request, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
@@ -19,7 +19,8 @@ from rulesets.service import (
     update_ruleset,
     delete_ruleset
 )
-from rulesets.matcher import match_rulesets
+from utils.session import get_active_user_id
+from spotify.api_client import SpotifyAPIClient
 
 router = APIRouter()
 
@@ -38,6 +39,8 @@ async def list_rulesets(
             keywords=r.keywords,
             description=r.description,
             criteria=r.criteria,
+            source_playlist_names=r.source_playlist_names,
+            source_mode=r.source_mode,
             is_active=r.is_active,
             created_at=r.created_at,
             updated_at=r.updated_at
@@ -59,6 +62,8 @@ async def create_ruleset_endpoint(
         keywords=ruleset.keywords,
         description=ruleset.description,
         criteria=ruleset.criteria,
+        source_playlist_names=ruleset.source_playlist_names,
+        source_mode=ruleset.source_mode,
         is_active=ruleset.is_active,
         created_at=ruleset.created_at,
         updated_at=ruleset.updated_at
@@ -81,6 +86,8 @@ async def get_ruleset(
         keywords=ruleset.keywords,
         description=ruleset.description,
         criteria=ruleset.criteria,
+        source_playlist_names=ruleset.source_playlist_names,
+        source_mode=ruleset.source_mode,
         is_active=ruleset.is_active,
         created_at=ruleset.created_at,
         updated_at=ruleset.updated_at
@@ -104,6 +111,8 @@ async def update_ruleset_endpoint(
         keywords=ruleset.keywords,
         description=ruleset.description,
         criteria=ruleset.criteria,
+        source_playlist_names=ruleset.source_playlist_names,
+        source_mode=ruleset.source_mode,
         is_active=ruleset.is_active,
         created_at=ruleset.created_at,
         updated_at=ruleset.updated_at
@@ -154,3 +163,52 @@ async def match_rulesets_endpoint(
         ],
         keywords_found=keywords_found
     )
+
+
+@router.post("/{ruleset_id}/validate-playlists")
+async def validate_source_playlists(
+    request: Request,
+    ruleset_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Validate that source playlists exist and are accessible."""
+    # Get active user
+    user_id = get_active_user_id(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    # Get ruleset
+    ruleset = await get_ruleset_by_id(db, ruleset_id)
+    if not ruleset:
+        raise HTTPException(status_code=404, detail="Ruleset not found")
+    
+    if not ruleset.source_playlist_names:
+        return {"valid": True, "playlists": []}
+    
+    # Get Spotify client
+    spotify_client = SpotifyAPIClient(user_id, db)
+    
+    # Get user's playlists
+    user_playlists = await spotify_client.get_user_playlists()
+    playlist_name_to_info = {p['name']: p for p in user_playlists}
+    
+    valid_playlists = []
+    invalid_names = []
+    
+    for name in ruleset.source_playlist_names:
+        if name in playlist_name_to_info:
+            info = playlist_name_to_info[name]
+            valid_playlists.append({
+                "name": name,
+                "id": info["id"],
+                "tracks_total": info["tracks_total"],
+                "owner": info["owner"]
+            })
+        else:
+            invalid_names.append(name)
+    
+    return {
+        "valid": len(invalid_names) == 0,
+        "valid_playlists": valid_playlists,
+        "invalid_playlist_names": invalid_names
+    }

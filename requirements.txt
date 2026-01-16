@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+aiosqlite
+pydantic
+pydantic-settings
+cryptography
+itsdangerous
+google-generativeai
+python-multipart
+pytest
+pytest-asyncio
+httpx

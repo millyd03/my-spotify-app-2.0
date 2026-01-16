@@ -87,6 +87,73 @@ class SpotifyAPIClient:
             
             return shows
     
+    async def get_user_playlists(self) -> List[Dict[str, Any]]:
+        """Get user's playlists."""
+        async with httpx.AsyncClient() as client:
+            headers = await self._get_headers()
+            playlists = []
+            offset = 0
+            limit = 50
+            
+            while True:
+                response = await client.get(
+                    f"{self.BASE_URL}/me/playlists",
+                    headers=headers,
+                    params={"limit": limit, "offset": offset}
+                )
+                response.raise_for_status()
+                data = response.json()
+                items = data.get("items", [])
+                if not items:
+                    break
+                
+                for item in items:
+                    playlists.append({
+                        "id": item.get("id"),
+                        "name": item.get("name"),
+                        "description": item.get("description"),
+                        "owner": item.get("owner", {}).get("id"),
+                        "public": item.get("public"),
+                        "tracks_total": item.get("tracks", {}).get("total", 0)
+                    })
+                
+                if len(items) < limit:
+                    break
+                offset += limit
+            
+            return playlists
+    
+    async def get_playlist_tracks(self, playlist_id: str) -> List[Dict[str, Any]]:
+        """Get tracks from a playlist."""
+        async with httpx.AsyncClient() as client:
+            headers = await self._get_headers()
+            tracks = []
+            offset = 0
+            limit = 100
+            
+            while True:
+                response = await client.get(
+                    f"{self.BASE_URL}/playlists/{playlist_id}/tracks",
+                    headers=headers,
+                    params={"limit": limit, "offset": offset}
+                )
+                response.raise_for_status()
+                data = response.json()
+                items = data.get("items", [])
+                if not items:
+                    break
+                
+                for item in items:
+                    track = item.get("track")
+                    if track:
+                        tracks.append(track)
+                
+                if len(items) < limit:
+                    break
+                offset += limit
+            
+            return tracks
+    
     async def search_tracks(
         self,
         query: str,
@@ -179,6 +246,16 @@ class SpotifyAPIClient:
             )
             response.raise_for_status()
             return response.json()
+    
+    async def delete_playlist(self, playlist_id: str) -> None:
+        """Delete a playlist."""
+        async with httpx.AsyncClient() as client:
+            headers = await self._get_headers()
+            response = await client.delete(
+                f"{self.BASE_URL}/playlists/{playlist_id}",
+                headers=headers
+            )
+            response.raise_for_status()
     
     async def add_items_to_playlist(
         self,

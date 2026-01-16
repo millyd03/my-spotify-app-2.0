@@ -16,9 +16,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
 import base64
 
-# Add backend to path
-sys.path.insert(0, str(Path(__file__).parent))
-
 from config import settings
 from database import AsyncSessionLocal, init_db
 from users.service import get_user_by_spotify_id, create_user, update_user_tokens, get_user_by_id
@@ -79,7 +76,7 @@ async def authenticate_user() -> Optional[int]:
     server_thread.start()
     
     # Build authorization URL
-    redirect_uri = f"http://localhost:{server_port}/callback"
+    redirect_uri = f"http://127.0.0.1:{server_port}/callback"
     params = {
         "client_id": settings.spotify_client_id,
         "response_type": "code",

@@ -50,19 +50,13 @@ try {
     exit 1
 }
 
-# Verify backend directory exists
-if (-not (Test-Path "backend")) {
-    Write-Host "✗ Backend directory not found!" -ForegroundColor Red
-    exit 1
-}
 
 Write-Host ""
 
 # Start Backend
-Write-Host "Starting backend server..." -ForegroundColor Cyan
+Write-Host "Starting server..." -ForegroundColor Cyan
 $backendScript = @"
 `$ErrorActionPreference = 'Stop'
-cd '$PWD\backend'
 
 # Check for virtual environment
 if (Test-Path 'venv\Scripts\Activate.ps1') {
@@ -75,16 +69,16 @@ if (Test-Path 'venv\Scripts\Activate.ps1') {
     Write-Host 'No virtual environment found. Using system Python.' -ForegroundColor Yellow
 }
 
-Write-Host 'Starting FastAPI backend on http://localhost:8000' -ForegroundColor Green
+Write-Host 'Starting FastAPI server on http://localhost:8000' -ForegroundColor Green
 python main.py
 "@
 
 Start-Process powershell -ArgumentList "-NoExit", "-Command", $backendScript
 
 Write-Host ""
-Write-Host "✓ Backend server is starting in a new window" -ForegroundColor Green
+Write-Host "✓ Server is starting in a new window" -ForegroundColor Green
 Write-Host ""
-Write-Host "Backend API: http://localhost:8000" -ForegroundColor Cyan
+Write-Host "API: http://localhost:8000" -ForegroundColor Cyan
 Write-Host "API Docs:    http://localhost:8000/docs" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Press Ctrl+C in the server window to stop it." -ForegroundColor Gray

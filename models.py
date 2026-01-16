@@ -53,6 +53,8 @@ class RulesetCreate(BaseModel):
     keywords: List[str] = Field(..., min_items=1)
     description: Optional[str] = None
     criteria: Dict[str, Any] = Field(default_factory=dict)
+    source_playlist_names: Optional[List[str]] = None
+    source_mode: Optional[str] = None
     is_active: bool = True
 
 
@@ -62,6 +64,8 @@ class RulesetUpdate(BaseModel):
     keywords: Optional[List[str]] = None
     description: Optional[str] = None
     criteria: Optional[Dict[str, Any]] = None
+    source_playlist_names: Optional[List[str]] = None
+    source_mode: Optional[str] = None
     is_active: Optional[bool] = None
 
 
@@ -72,6 +76,8 @@ class RulesetResponse(BaseModel):
     keywords: List[str]
     description: Optional[str] = None
     criteria: Dict[str, Any]
+    source_playlist_names: Optional[List[str]] = None
+    source_mode: Optional[str] = None
     is_active: bool
     created_at: datetime
     updated_at: datetime
