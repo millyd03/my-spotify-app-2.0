@@ -59,6 +59,8 @@ class Ruleset(Base):
     keywords = Column(JSON, nullable=False)  # Array of trigger keywords
     description = Column(Text, nullable=True)
     criteria = Column(JSON, nullable=False)  # Filter criteria object
+    source_playlist_names = Column(JSON, nullable=True)  # Array of source playlist names
+    source_mode = Column(String, nullable=True)  # 'replace' or 'supplement'
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

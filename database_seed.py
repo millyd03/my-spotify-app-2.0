@@ -33,6 +33,15 @@ async def seed_initial_rulesets(db: AsyncSession):
                 "years_back": 5
             },
             "is_active": True
+        },
+        {
+            "name": "covers",
+            "keywords": ["covers", "cover songs", "tacno"],
+            "description": "Songs from the Covers playlist",
+            "criteria": {},
+            "source_playlist_names": ["Covers"],
+            "source_mode": "replace",
+            "is_active": True
         }
     ]
     

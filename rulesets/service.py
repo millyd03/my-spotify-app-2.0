@@ -48,6 +48,8 @@ async def create_ruleset(
         keywords=ruleset_data.keywords,
         description=ruleset_data.description,
         criteria=ruleset_data.criteria,
+        source_playlist_names=ruleset_data.source_playlist_names,
+        source_mode=ruleset_data.source_mode,
         is_active=ruleset_data.is_active
     )
     db.add(ruleset)
@@ -81,6 +83,12 @@ async def update_ruleset(
     
     if ruleset_data.criteria is not None:
         ruleset.criteria = ruleset_data.criteria
+    
+    if ruleset_data.source_playlist_names is not None:
+        ruleset.source_playlist_names = ruleset_data.source_playlist_names
+    
+    if ruleset_data.source_mode is not None:
+        ruleset.source_mode = ruleset_data.source_mode
     
     if ruleset_data.is_active is not None:
         ruleset.is_active = ruleset_data.is_active
