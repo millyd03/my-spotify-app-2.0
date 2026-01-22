@@ -52,6 +52,34 @@ class SpotifyAPIClient:
             data = response.json()
             return data.get("items", [])
     
+    async def get_followed_artists(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Get user's followed artists."""
+        async with httpx.AsyncClient() as client:
+            headers = await self._get_headers()
+            response = await client.get(
+                f"{self.BASE_URL}/me/following",
+                headers=headers,
+                params={
+                    "type": "artist",
+                    "limit": limit
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data.get("artists", {}).get("items", [])
+    
+    async def get_artist_top_tracks(self, artist_id: str, country: str = "US") -> List[Dict[str, Any]]:
+        """Get artist's top tracks."""
+        async with httpx.AsyncClient() as client:
+            headers = await self._get_headers()
+            response = await client.get(
+                f"{self.BASE_URL}/artists/{artist_id}/top-tracks",
+                headers=headers,
+                params={"country": country}
+            )
+            response.raise_for_status()
+            return response.json().get("tracks", [])
+    
     async def get_saved_podcasts(self) -> List[Dict[str, Any]]:
         """Get user's saved podcasts/shows."""
         async with httpx.AsyncClient() as client:
