@@ -22,7 +22,7 @@ def get_spotify_auth_url(state: str = None) -> str:
         "client_id": settings.spotify_client_id,
         "response_type": "code",
         "redirect_uri": settings.spotify_redirect_uri,
-        "scope": "user-read-private user-read-email user-top-read user-library-read playlist-modify-public playlist-modify-private user-read-playback-state",
+        "scope": "user-read-private user-read-email user-top-read user-library-read playlist-modify-public playlist-modify-private user-read-playback-state user-follow-read",
     }
     if state:
         params["state"] = state

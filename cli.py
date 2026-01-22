@@ -81,7 +81,7 @@ async def authenticate_user() -> Optional[int]:
         "client_id": settings.spotify_client_id,
         "response_type": "code",
         "redirect_uri": redirect_uri,
-        "scope": "user-read-private user-read-email user-top-read user-library-read playlist-modify-public playlist-modify-private user-read-playback-state",
+        "scope": "user-read-private user-read-email user-top-read user-library-read playlist-modify-public playlist-modify-private user-read-playback-state user-follow-read",
     }
     auth_url = f"https://accounts.spotify.com/authorize?{urlencode(params)}"
     

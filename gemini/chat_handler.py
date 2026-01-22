@@ -59,7 +59,7 @@ Available Rulesets:
 {rulesets_context}
 
 When a user wants to:
-- **Create a playlist**: Extract the guidelines and music_only preference. Respond naturally, then the system will generate the playlist.
+- **Create a playlist**: Extract the number of songs, whether it's a daily drive playlist, whether to allow explicit songs, the ruleset name, and any additional guidelines. Respond naturally, then the system will generate the playlist.
 - **Create a ruleset**: Extract name, keywords (list), description, and criteria (dict with min_year, max_year, years_back, or genre_filter).
 - **Edit a ruleset**: Identify which ruleset (by name or ID) and what fields to update.
 - **Delete a ruleset**: Identify which ruleset to delete (by name or ID).
@@ -83,7 +83,11 @@ For create_playlist intent:
 {{
     "intent": "create_playlist",
     "data": {{
-        "guidelines": "description of playlist",
+        "num_songs": 20,
+        "is_daily_drive": false,
+        "allow_explicit": true,
+        "ruleset_name": "ruleset_name",
+        "guidelines": "additional description of playlist",
         "music_only": true/false
     }}
 }}
@@ -149,27 +153,42 @@ Now respond to the user's latest message:"""
             
             if intent == "create_playlist" and spotify_client and playlist_generator:
                 # Generate playlist
+                num_songs = data.get("num_songs", 20)
+                is_daily_drive = data.get("is_daily_drive", False)
+                allow_explicit = data.get("allow_explicit", True)
+                ruleset_name = data.get("ruleset_name")
                 guidelines = data.get("guidelines", "")
                 music_only = data.get("music_only", False)
                 
-                if guidelines:
-                    matched_rulesets = await match_rulesets(db, guidelines)
-                    playlist_result = await playlist_generator(
-                        db=db,
-                        user_id=user_id,
-                        guidelines=guidelines,
-                        matched_rulesets=matched_rulesets,
-                        music_only=music_only,
-                        spotify_client=spotify_client
-                    )
-                    action_type = "playlist_created"
-                    action_data = {
-                        "playlist_id": playlist_result.playlist_id,
-                        "name": playlist_result.name,
-                        "spotify_url": playlist_result.spotify_url,
-                        "rulesets_applied": playlist_result.rulesets_applied,
-                        "tracks_count": playlist_result.tracks_count
-                    }
+                # Get ruleset if specified
+                matched_rulesets = []
+                if ruleset_name:
+                    ruleset = await get_ruleset_by_name(db, ruleset_name)
+                    if ruleset:
+                        matched_rulesets = [ruleset]
+                else:
+                    # Fallback to keyword matching
+                    matched_rulesets = await match_rulesets(db, guidelines or f"{num_songs} songs {'daily drive' if is_daily_drive else ''} {'non-explicit' if not allow_explicit else ''}")
+                
+                playlist_result = await playlist_generator(
+                    db=db,
+                    user_id=user_id,
+                    num_songs=num_songs,
+                    is_daily_drive=is_daily_drive,
+                    allow_explicit=allow_explicit,
+                    ruleset=matched_rulesets[0] if matched_rulesets else None,
+                    guidelines=guidelines,
+                    music_only=music_only,
+                    spotify_client=spotify_client
+                )
+                action_type = "playlist_created"
+                action_data = {
+                    "playlist_id": playlist_result.playlist_id,
+                    "name": playlist_result.name,
+                    "spotify_url": playlist_result.spotify_url,
+                    "rulesets_applied": playlist_result.rulesets_applied,
+                    "tracks_count": playlist_result.tracks_count
+                }
             
             elif intent == "create_ruleset":
                 # Create ruleset
