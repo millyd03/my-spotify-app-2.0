@@ -15,7 +15,6 @@ class UserResponse(BaseModel):
     
     class Config:
         from_attributes = True
-        orm_mode = True
 
 
 class SwitchUserRequest(BaseModel):
@@ -84,7 +83,6 @@ class RulesetResponse(BaseModel):
     
     class Config:
         from_attributes = True
-        orm_mode = True
 
 
 class RulesetMatchRequest(BaseModel):
@@ -113,6 +111,21 @@ class PodcastInfo(BaseModel):
     name: str
     publisher: Optional[str] = None
     description: Optional[str] = None
+
+
+class PlaylistInfo(BaseModel):
+    """Playlist information."""
+    id: str
+    name: str
+    description: Optional[str] = None
+    owner: str
+    public: Optional[bool] = None
+    tracks_total: int
+
+
+class UserPlaylistsResponse(BaseModel):
+    """Response with user's playlists."""
+    playlists: List[PlaylistInfo]
 
 
 class UserArtistsResponse(BaseModel):

@@ -1,7 +1,10 @@
 """Playlist generation using Gemini AI."""
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Any, Optional
-import google.generativeai as genai
+import google.genai as genai
+import math
+from collections import defaultdict
+from datetime import datetime
 from config import settings
 from database import Playlist
 from models import PlaylistCreateResponse
@@ -10,9 +13,7 @@ from rulesets.matcher import apply_ruleset_filters, get_date_filters
 from datetime import datetime
 from sqlalchemy import delete
 from definition.day_intros import DayIntros
-
-# Configure Gemini
-genai.configure(api_key=settings.gemini_api_key)
+from definition.artist_tiers import ArtistTiers
 
 
 async def generate_playlist(
@@ -22,11 +23,14 @@ async def generate_playlist(
     is_daily_drive: bool,
     allow_explicit: bool,
     ruleset: Optional[Ruleset],
-    guidelines: str,
+    guidelines: Optional[str],
     music_only: bool,
     spotify_client
 ) -> PlaylistCreateResponse:
     """Generate a playlist using Gemini AI or source playlists."""
+    # Ensure guidelines is a string
+    guidelines = guidelines or ""
+    
     # Check for source playlists
     source_playlist_names = []
     has_replace_mode = False
@@ -116,48 +120,91 @@ async def generate_playlist(
         if source_tracks:
             source_info = f"\nAvailable source tracks from playlists ({len(source_tracks)} tracks): prioritize using these tracks when possible."
         
-        # Generate playlist randomly from followed artists
+        # Generate playlist from followed artists using tier-based selection
         import random
         
         found_tracks = []
         found_episodes = []  # Skip episodes for now
         
         if followed_artists:
-            num_artists = min(10, len(followed_artists))
-            selected_artists = random.sample(followed_artists, num_artists)
+            # Get artist details and assign tiers
+            artist_details = []
+            for artist in followed_artists:
+                try:
+                    details = await spotify_client.get_artist(artist['id'])
+                    followers = details.get('followers', {}).get('total', 0)
+                    tier = None
+                    for t in ArtistTiers:
+                        if followers <= t.value:
+                            tier = t
+                            break
+                    if tier is None:
+                        tier = ArtistTiers.TIER_6
+                    artist_details.append({
+                        'id': artist['id'],
+                        'name': artist['name'],
+                        'tier': tier,
+                        'followers': followers
+                    })
+                except Exception:
+                    # If can't get details, assign lowest tier
+                    artist_details.append({
+                        'id': artist['id'],
+                        'name': artist['name'],
+                        'tier': ArtistTiers.TIER_1,
+                        'followers': 0
+                    })
+            
+            # Select all followed artists
+            selected_artists = artist_details
+            
+            # Calculate limits based on follower tiers
+            artist_limits = {}
+            for artist in selected_artists:
+                f = artist['followers']
+                if f < ArtistTiers.TIER_1.value:
+                    percent = 0.02
+                elif f < ArtistTiers.TIER_2.value:
+                    percent = 0.05
+                elif f < ArtistTiers.TIER_3.value:
+                    percent = 0.10
+                elif f < ArtistTiers.TIER_4.value:
+                    percent = 0.15
+                elif f < ArtistTiers.TIER_5.value:
+                    percent = 0.20
+                else:
+                    percent = 1.0
+                max_songs = math.ceil(num_songs * percent) if percent < 1.0 else num_songs
+                artist_limits[artist['id']] = max_songs
+            
+            artist_counts = defaultdict(int)
+            artist_track_lists = {}
+            for artist in selected_artists:
+                artist_track_lists[artist['id']] = await spotify_client.get_artist_top_tracks(artist['id'])
             
             tracks_needed = num_songs
-            for artist in selected_artists:
-                if tracks_needed <= 0:
+            while tracks_needed > 0:
+                available_artists = [a for a in selected_artists if artist_counts[a['id']] < artist_limits[a['id']] and artist_track_lists[a['id']]]
+                if not available_artists:
                     break
-                    
-                top_tracks = await spotify_client.get_artist_top_tracks(artist['id'])
-                if top_tracks:
-                    available_tracks = top_tracks
-                    while available_tracks and tracks_needed > 0:
-                        if not available_tracks:
-                            break
-                        
-                        # Select a random track
-                        track = random.choice(available_tracks)
-                        available_tracks.remove(track)
-                        
-                        # Check explicit filter (with up to 5 retries)
-                        if not allow_explicit and track.get('explicit', False):
-                            retry_count = 0
-                            while retry_count < 5 and available_tracks:
-                                track = random.choice(available_tracks)
-                                available_tracks.remove(track)
-                                if not track.get('explicit', False):
-                                    break
-                                retry_count += 1
-                            
-                            # Use track if found, or last selected if retries exhausted
-                        
-                        found_tracks.append(track['id'])
-                        tracks_needed -= 1
-            
-            found_tracks = found_tracks[:num_songs]
+                artist = random.choice(available_artists)
+                track = random.choice(artist_track_lists[artist['id']])
+                artist_track_lists[artist['id']].remove(track)
+                
+                # Check explicit filter
+                if not allow_explicit and track.get('explicit', False):
+                    retry_count = 0
+                    while retry_count < 5 and artist_track_lists[artist['id']] and (not allow_explicit and track.get('explicit', False)):
+                        if artist_track_lists[artist['id']]:
+                            track = random.choice(artist_track_lists[artist['id']])
+                            artist_track_lists[artist['id']].remove(track)
+                        retry_count += 1
+                    if not allow_explicit and track.get('explicit', False):
+                        continue
+                
+                found_tracks.append(track['id'])
+                artist_counts[artist['id']] += 1
+                tracks_needed -= 1
         
         playlist_name = guidelines if guidelines else "Generated Playlist"
         playlist_description = f"Playlist with {num_songs} songs from followed artists"
@@ -198,13 +245,24 @@ async def generate_playlist(
         day_name = datetime.now().strftime('%A')
         playlist_name = f"Daily Drive - {day_name}"
         
+        # Ensure guidelines has a value for daily drive
+        if not guidelines:
+            guidelines = f"Daily drive playlist for {day_name}"
+        
         # Delete existing playlists with this name
         user_playlists = await spotify_client.get_user_playlists()
         for p in user_playlists:
             if p['name'] == playlist_name:
-                await spotify_client.delete_playlist(p['id'])
-                # Delete from database
-                await db.execute(delete(Playlist).where(Playlist.spotify_playlist_id == p['id']))
+                try:
+                    await spotify_client.delete_playlist(p['id'])
+                    print(f"Deleted existing daily drive playlist: {p['id']}")
+                except Exception as e:
+                    print(f"Warning: Failed to delete playlist {p['id']}: {e}")
+                # Delete from database regardless
+                try:
+                    await db.execute(delete(Playlist).where(Playlist.spotify_playlist_id == p['id']))
+                except Exception as e:
+                    print(f"Warning: Failed to delete playlist from database {p['id']}: {e}")
         await db.commit()
         
         # Add day intro as first track
@@ -259,7 +317,7 @@ async def generate_playlist(
         user_id=user_id,
         spotify_playlist_id=playlist_id,
         name=playlist_name,
-        guidelines_used=guidelines,
+        guidelines_used=guidelines or "",
         rulesets_applied=[ruleset.name] if ruleset else []
     )
     db.add(db_playlist)
