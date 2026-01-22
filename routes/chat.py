@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Dict, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 from database import get_db
 from models import ChatRequest, ChatResponse, ChatMessage, ChatHistoryResponse
@@ -45,7 +45,7 @@ async def send_chat_message(
     user_message = ChatMessage(
         role="user",
         content=chat_request.message,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )
     conversation_history.append(user_message)
     
@@ -69,7 +69,7 @@ async def send_chat_message(
     assistant_message = ChatMessage(
         role="assistant",
         content=response_text,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )
     conversation_history.append(assistant_message)
     

@@ -40,8 +40,11 @@ async def create_playlist(
     playlist_result = await generate_playlist(
         db=db,
         user_id=user_id,
+        num_songs=20,  # Default number of songs
+        is_daily_drive=False,
+        allow_explicit=True,  # Default to allow explicit
+        ruleset=matched_rulesets[0] if matched_rulesets else None,
         guidelines=playlist_request.guidelines,
-        matched_rulesets=matched_rulesets,
         music_only=playlist_request.music_only,
         spotify_client=spotify_client
     )

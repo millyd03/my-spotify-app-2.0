@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Optional, List
 from urllib.parse import urlencode, parse_qs, urlparse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
@@ -152,7 +152,7 @@ async def authenticate_user() -> Optional[int]:
     async with AsyncSessionLocal() as db:
         encrypted_access_token = encrypt_token(access_token)
         encrypted_refresh_token = encrypt_token(refresh_token)
-        token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+        token_expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
         
         existing_user = await get_user_by_spotify_id(db, spotify_user_id)
         
@@ -273,7 +273,7 @@ async def run_cli():
             user_message = ChatMessage(
                 role="user",
                 content=user_input,
-                timestamp=datetime.utcnow()
+                timestamp=datetime.now(timezone.utc)
             )
             conversation_history.append(user_message)
             
@@ -281,7 +281,7 @@ async def run_cli():
             assistant_message = ChatMessage(
                 role="assistant",
                 content=response_text,
-                timestamp=datetime.utcnow()
+                timestamp=datetime.now(timezone.utc)
             )
             conversation_history.append(assistant_message)
             

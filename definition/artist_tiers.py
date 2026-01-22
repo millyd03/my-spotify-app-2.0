@@ -7,5 +7,5 @@ class ArtistTiers(Enum):
     TIER_2 = 500000
     TIER_3 = 1000000
     TIER_4 = 5000000
-    TIER_5 = 10000000
+    TIER_5 = 8000000
     TIER_6 = sys.maxsize

@@ -3,7 +3,7 @@ from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 import base64
 
@@ -103,7 +103,7 @@ async def callback(
     # Encrypt tokens
     encrypted_access_token = encrypt_token(access_token)
     encrypted_refresh_token = encrypt_token(refresh_token)
-    token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+    token_expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
     
     # Check if user exists
     existing_user = await get_user_by_spotify_id(db, spotify_user_id)

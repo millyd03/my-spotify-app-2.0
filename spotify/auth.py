@@ -2,7 +2,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from users.service import get_user_by_id, update_user_tokens
 from utils.encryption import encrypt_token, decrypt_token
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import httpx
 import base64
 from config import settings
@@ -16,7 +16,7 @@ async def get_user_token(user_id: int, db: AsyncSession) -> Optional[str]:
         return None
     
     # Check if token is expired
-    if datetime.utcnow() >= user.token_expires_at:
+    if datetime.now(timezone.utc) >= (user.token_expires_at if user.token_expires_at.tzinfo else user.token_expires_at.replace(tzinfo=timezone.utc)):
         # Refresh token
         await refresh_user_token(user_id, db)
         user = await get_user_by_id(db, user_id)
@@ -68,7 +68,7 @@ async def refresh_user_token(user_id: int, db: AsyncSession) -> bool:
             # Keep existing encrypted refresh token
             encrypted_refresh_token = user.refresh_token
         
-        token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+        token_expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
         
         await update_user_tokens(
             db,
@@ -91,7 +91,7 @@ async def store_user_tokens(
     """Store user's tokens (already encrypted)."""
     encrypted_access_token = encrypt_token(access_token)
     encrypted_refresh_token = encrypt_token(refresh_token)
-    token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+    token_expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
     
     await update_user_tokens(
         db,

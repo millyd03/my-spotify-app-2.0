@@ -2,7 +2,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from database import Ruleset
 from models import RulesetCreate, RulesetUpdate
@@ -93,7 +93,7 @@ async def update_ruleset(
     if ruleset_data.is_active is not None:
         ruleset.is_active = ruleset_data.is_active
     
-    ruleset.updated_at = datetime.utcnow()
+    ruleset.updated_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(ruleset)
     return ruleset
