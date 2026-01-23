@@ -10,7 +10,7 @@ from database import Playlist
 from models import PlaylistCreateResponse
 from database import Ruleset
 from rulesets.matcher import apply_ruleset_filters, get_date_filters
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import delete
 from definition.day_intros import DayIntros
 from definition.artist_tiers import ArtistTiers
@@ -75,10 +75,30 @@ async def generate_playlist(
         # Get user's followed artists (fallback to top artists if permission not granted)
         followed_artists = []
         try:
-            followed_artists = await spotify_client.get_followed_artists(limit=50)
+            followed_artists = await spotify_client.get_followed_artists()  # Fetch all
         except Exception as e:
             print(f"Warning: Could not fetch followed artists ({e}), falling back to top artists")
             followed_artists = await spotify_client.get_top_artists(limit=50, time_range="long_term")
+        
+        # Get followers for tier determination
+        artist_tiers = {}
+        for artist in followed_artists:
+            try:
+                artist_details = await spotify_client.get_artist(artist['id'])
+                followers = artist_details.get('followers', {}).get('total', 0)
+                if followers >= ArtistTiers.TIER_5.value:
+                    tier = 5
+                elif followers >= ArtistTiers.TIER_4.value:
+                    tier = 4
+                elif followers >= ArtistTiers.TIER_3.value:
+                    tier = 3
+                elif followers >= ArtistTiers.TIER_2.value:
+                    tier = 2
+                else:
+                    tier = 1
+                artist_tiers[artist['id']] = tier
+            except Exception:
+                artist_tiers[artist['id']] = 1  # default to lowest tier
         
         # Get user's saved podcasts (if not music_only)
         podcasts = []
@@ -127,55 +147,49 @@ async def generate_playlist(
         found_episodes = []  # Skip episodes for now
         
         if followed_artists:
-            # Get artist details and assign tiers
-            artist_details = []
-            for artist in followed_artists:
-                try:
-                    details = await spotify_client.get_artist(artist['id'])
-                    followers = details.get('followers', {}).get('total', 0)
-                    tier = None
-                    for t in ArtistTiers:
-                        if followers <= t.value:
-                            tier = t
-                            break
-                    if tier is None:
-                        tier = ArtistTiers.TIER_6
-                    artist_details.append({
-                        'id': artist['id'],
-                        'name': artist['name'],
-                        'tier': tier,
-                        'followers': followers
-                    })
-                except Exception:
-                    # If can't get details, assign lowest tier
-                    artist_details.append({
-                        'id': artist['id'],
-                        'name': artist['name'],
-                        'tier': ArtistTiers.TIER_1,
-                        'followers': 0
-                    })
+            # Initialize song count per artist to enforce tier-based limits
+            artist_song_count = {artist['id']: 0 for artist in followed_artists}
             
-            # Select all followed artists
-            selected_artists = artist_details
-            
-            # Calculate limits based on follower tiers
-            artist_limits = {}
-            for artist in selected_artists:
-                f = artist['followers']
-                if f < ArtistTiers.TIER_1.value:
-                    percent = 0.02
-                elif f < ArtistTiers.TIER_2.value:
-                    percent = 0.05
-                elif f < ArtistTiers.TIER_3.value:
-                    percent = 0.10
-                elif f < ArtistTiers.TIER_4.value:
-                    percent = 0.15
-                elif f < ArtistTiers.TIER_5.value:
-                    percent = 0.20
-                else:
-                    percent = 1.0
-                max_songs = math.ceil(num_songs * percent) if percent < 1.0 else num_songs
-                artist_limits[artist['id']] = max_songs
+            while len(found_tracks) < num_songs:
+                # Get eligible artists who haven't reached their tier limit
+                eligible_artists = [
+                    artist for artist in followed_artists
+                    if artist_song_count[artist['id']] < artist_tiers.get(artist['id'], 1)
+                ]
+                
+                if not eligible_artists:
+                    break  # No more artists available
+                
+                # Weights based on tier for eligible artists
+                weights = [artist_tiers.get(artist['id'], 1) for artist in eligible_artists]
+                selected_artist = random.choices(eligible_artists, weights=weights, k=1)[0]
+                
+                # Get top tracks for the selected artist
+                top_tracks = await spotify_client.get_artist_top_tracks(selected_artist['id'])
+                if not top_tracks:
+                    continue  # Skip if no tracks available
+                
+                available_tracks = top_tracks.copy()
+                
+                # Select a random track with explicit filtering (up to 5 retries)
+                track = None
+                if available_tracks:
+                    track = random.choice(available_tracks)
+                    available_tracks.remove(track)
+                    
+                    if not allow_explicit and track.get('explicit', False):
+                        retry_count = 0
+                        while retry_count < 5 and available_tracks:
+                            track = random.choice(available_tracks)
+                            available_tracks.remove(track)
+                            if not track.get('explicit', False):
+                                break
+                            retry_count += 1
+                        # Use the track if found, or the last selected if retries exhausted
+                
+                if track:
+                    found_tracks.append(track['id'])
+                    artist_song_count[selected_artist['id']] += 1
             
             artist_counts = defaultdict(int)
             artist_track_lists = {}
@@ -242,7 +256,7 @@ async def generate_playlist(
     # Handle daily drive special case and name conflicts
     if is_daily_drive:
         # Override name for daily drive
-        day_name = datetime.now().strftime('%A')
+        day_name = datetime.now(timezone.utc).strftime('%A')
         playlist_name = f"Daily Drive - {day_name}"
         
         # Ensure guidelines has a value for daily drive
@@ -317,7 +331,7 @@ async def generate_playlist(
         user_id=user_id,
         spotify_playlist_id=playlist_id,
         name=playlist_name,
-        guidelines_used=guidelines or "",
+        guidelines_used=guidelines or "Daily Drive",
         rulesets_applied=[ruleset.name] if ruleset else []
     )
     db.add(db_playlist)

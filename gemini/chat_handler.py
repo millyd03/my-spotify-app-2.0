@@ -23,7 +23,8 @@ class ChatHandler:
     """Handles chat conversations using Gemini AI."""
     
     def __init__(self):
-        self.client = genai.Client(api_key=settings.gemini_api_key)
+        genai.configure(api_key=settings.gemini_api_key)
+        self.model = genai.GenerativeModel(model_name='gemini-2.5-flash')
     
     async def process_message(
         self,

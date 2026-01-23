@@ -53,14 +53,16 @@ class SpotifyAPIClient:
             return data.get("items", [])
     
     async def get_followed_artists(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
-        """Get user's followed artists."""
+        """Get user's followed artists. If limit is None, fetch all."""
         async with httpx.AsyncClient() as client:
             headers = await self._get_headers()
             artists = []
             after = None
             
             while True:
-                params = {"type": "artist", "limit": 50}
+                params = {"type": "artist"}
+                if limit is not None and len(artists) >= limit:
+                    break
                 if after:
                     params["after"] = after
                 
@@ -72,22 +74,15 @@ class SpotifyAPIClient:
                 response.raise_for_status()
                 data = response.json()
                 items = data.get("artists", {}).get("items", [])
-                if not items:
-                    break
-                
                 artists.extend(items)
                 
-                # Check if we have a next page
                 cursors = data.get("artists", {}).get("cursors", {})
                 after = cursors.get("after")
-                if not after:
-                    break
-                
-                # If limit is specified and we've reached it, stop
-                if limit and len(artists) >= limit:
-                    artists = artists[:limit]
+                if not after or (limit is not None and len(artists) >= limit):
                     break
             
+            if limit is not None:
+                artists = artists[:limit]
             return artists
     
     async def get_artist_top_tracks(self, artist_id: str, country: str = "US") -> List[Dict[str, Any]]:
@@ -103,7 +98,7 @@ class SpotifyAPIClient:
             return response.json().get("tracks", [])
     
     async def get_artist(self, artist_id: str) -> Dict[str, Any]:
-        """Get artist details."""
+        """Get artist details including followers."""
         async with httpx.AsyncClient() as client:
             headers = await self._get_headers()
             response = await client.get(
