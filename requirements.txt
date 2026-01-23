@@ -6,7 +6,7 @@ pydantic
 pydantic-settings
 cryptography
 itsdangerous
-google-generativeai
+google-genai
 python-multipart
 pytest
 pytest-asyncio

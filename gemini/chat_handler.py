@@ -1,7 +1,7 @@
 """Chat handler using Gemini AI for conversational playlist and ruleset management."""
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Any, Optional, Tuple
-import google.generativeai as genai
+import google.genai as genai
 import json
 import re
 from datetime import datetime
@@ -17,6 +17,7 @@ from rulesets.service import (
     delete_ruleset
 )
 from rulesets.matcher import match_rulesets
+
 
 class ChatHandler:
     """Handles chat conversations using Gemini AI."""
@@ -134,7 +135,7 @@ Conversation history:
 Now respond to the user's latest message:"""
 
         # Generate response
-        response = self.model.generate_content(system_prompt)
+        response = self.client.models.generate_content(model='gemini-2.5-flash', contents=system_prompt)
         response_text = response.text
         
         # Extract intent JSON if present
@@ -154,7 +155,7 @@ Now respond to the user's latest message:"""
                 is_daily_drive = data.get("is_daily_drive", False)
                 allow_explicit = data.get("allow_explicit", True)
                 ruleset_name = data.get("ruleset_name")
-                guidelines = data.get("guidelines", "")
+                guidelines = str(data.get("guidelines", "") or "")
                 music_only = data.get("music_only", False)
                 
                 # Get ruleset if specified

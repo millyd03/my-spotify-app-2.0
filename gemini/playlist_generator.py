@@ -2,6 +2,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Any, Optional
 import google.genai as genai
+import math
+from collections import defaultdict
+from datetime import datetime
 from config import settings
 from database import Playlist
 from models import PlaylistCreateResponse
@@ -11,6 +14,7 @@ from datetime import datetime, timezone
 from sqlalchemy import delete
 from definition.day_intros import DayIntros
 from definition.artist_tiers import ArtistTiers
+
 
 async def generate_playlist(
     db: AsyncSession,
@@ -24,6 +28,9 @@ async def generate_playlist(
     spotify_client
 ) -> PlaylistCreateResponse:
     """Generate a playlist using Gemini AI or source playlists."""
+    # Ensure guidelines is a string
+    guidelines = guidelines or ""
+    
     # Check for source playlists
     source_playlist_names = []
     has_replace_mode = False
@@ -133,7 +140,7 @@ async def generate_playlist(
         if source_tracks:
             source_info = f"\nAvailable source tracks from playlists ({len(source_tracks)} tracks): prioritize using these tracks when possible."
         
-        # Generate playlist randomly from followed artists
+        # Generate playlist from followed artists using tier-based selection
         import random
         
         found_tracks = []
@@ -184,7 +191,34 @@ async def generate_playlist(
                     found_tracks.append(track['id'])
                     artist_song_count[selected_artist['id']] += 1
             
-            found_tracks = found_tracks[:num_songs]
+            artist_counts = defaultdict(int)
+            artist_track_lists = {}
+            for artist in selected_artists:
+                artist_track_lists[artist['id']] = await spotify_client.get_artist_top_tracks(artist['id'])
+            
+            tracks_needed = num_songs
+            while tracks_needed > 0:
+                available_artists = [a for a in selected_artists if artist_counts[a['id']] < artist_limits[a['id']] and artist_track_lists[a['id']]]
+                if not available_artists:
+                    break
+                artist = random.choice(available_artists)
+                track = random.choice(artist_track_lists[artist['id']])
+                artist_track_lists[artist['id']].remove(track)
+                
+                # Check explicit filter
+                if not allow_explicit and track.get('explicit', False):
+                    retry_count = 0
+                    while retry_count < 5 and artist_track_lists[artist['id']] and (not allow_explicit and track.get('explicit', False)):
+                        if artist_track_lists[artist['id']]:
+                            track = random.choice(artist_track_lists[artist['id']])
+                            artist_track_lists[artist['id']].remove(track)
+                        retry_count += 1
+                    if not allow_explicit and track.get('explicit', False):
+                        continue
+                
+                found_tracks.append(track['id'])
+                artist_counts[artist['id']] += 1
+                tracks_needed -= 1
         
         playlist_name = guidelines if guidelines else "Generated Playlist"
         playlist_description = f"Playlist with {num_songs} songs from followed artists"
@@ -225,13 +259,24 @@ async def generate_playlist(
         day_name = datetime.now(timezone.utc).strftime('%A')
         playlist_name = f"Daily Drive - {day_name}"
         
+        # Ensure guidelines has a value for daily drive
+        if not guidelines:
+            guidelines = f"Daily drive playlist for {day_name}"
+        
         # Delete existing playlists with this name
         user_playlists = await spotify_client.get_user_playlists()
         for p in user_playlists:
             if p['name'] == playlist_name:
-                await spotify_client.delete_playlist(p['id'])
-                # Delete from database
-                await db.execute(delete(Playlist).where(Playlist.spotify_playlist_id == p['id']))
+                try:
+                    await spotify_client.delete_playlist(p['id'])
+                    print(f"Deleted existing daily drive playlist: {p['id']}")
+                except Exception as e:
+                    print(f"Warning: Failed to delete playlist {p['id']}: {e}")
+                # Delete from database regardless
+                try:
+                    await db.execute(delete(Playlist).where(Playlist.spotify_playlist_id == p['id']))
+                except Exception as e:
+                    print(f"Warning: Failed to delete playlist from database {p['id']}: {e}")
         await db.commit()
         
         # Add day intro as first track

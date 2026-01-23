@@ -35,7 +35,7 @@ class User(Base):
     access_token = Column(Text, nullable=False)  # Encrypted
     refresh_token = Column(Text, nullable=False)  # Encrypted
     token_expires_at = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
 
 class Playlist(Base):
@@ -48,7 +48,7 @@ class Playlist(Base):
     name = Column(String, nullable=False)
     guidelines_used = Column(Text, nullable=False)
     rulesets_applied = Column(JSON, nullable=True)  # Array of ruleset names
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
 
 class Ruleset(Base):
@@ -63,8 +63,8 @@ class Ruleset(Base):
     source_playlist_names = Column(JSON, nullable=True)  # Array of source playlist names
     source_mode = Column(String, nullable=True)  # 'replace' or 'supplement'
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
 
 async def init_db():

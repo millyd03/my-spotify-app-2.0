@@ -113,6 +113,21 @@ class PodcastInfo(BaseModel):
     description: Optional[str] = None
 
 
+class PlaylistInfo(BaseModel):
+    """Playlist information."""
+    id: str
+    name: str
+    description: Optional[str] = None
+    owner: str
+    public: Optional[bool] = None
+    tracks_total: int
+
+
+class UserPlaylistsResponse(BaseModel):
+    """Response with user's playlists."""
+    playlists: List[PlaylistInfo]
+
+
 class UserArtistsResponse(BaseModel):
     """Response with user's top artists."""
     artists: List[ArtistInfo]
