@@ -15,7 +15,6 @@ class UserResponse(BaseModel):
     
     class Config:
         from_attributes = True
-        orm_mode = True
 
 
 class SwitchUserRequest(BaseModel):
@@ -84,7 +83,6 @@ class RulesetResponse(BaseModel):
     
     class Config:
         from_attributes = True
-        orm_mode = True
 
 
 class RulesetMatchRequest(BaseModel):

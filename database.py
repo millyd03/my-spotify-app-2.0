@@ -2,7 +2,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Boolean, JSON
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import AsyncGenerator
 from config import settings
 
 # Convert SQLite URL to async-compatible format
@@ -72,7 +73,7 @@ async def init_db():
         await conn.run_sync(Base.metadata.create_all)
 
 
-async def get_db() -> AsyncSession:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Get database session."""
     async with AsyncSessionLocal() as session:
         try:

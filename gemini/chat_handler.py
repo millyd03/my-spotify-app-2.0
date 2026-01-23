@@ -18,15 +18,12 @@ from rulesets.service import (
 )
 from rulesets.matcher import match_rulesets
 
-# Configure Gemini
-genai.configure(api_key=settings.gemini_api_key)
-
-
 class ChatHandler:
     """Handles chat conversations using Gemini AI."""
     
     def __init__(self):
-        self.model = genai.GenerativeModel('gemini-2.5-flash')
+        genai.configure(api_key=settings.gemini_api_key)
+        self.model = genai.GenerativeModel(model_name='gemini-2.5-flash')
     
     async def process_message(
         self,
