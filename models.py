@@ -27,6 +27,7 @@ class PlaylistCreateRequest(BaseModel):
     """Request to create a playlist."""
     guidelines: str = Field(..., min_length=1, description="Natural language guidelines for playlist generation")
     music_only: bool = Field(default=False, description="If true, only include music (no podcasts)")
+    timezone: Optional[str] = Field(default=None, description="Timezone for daily drive day determination (e.g., 'America/New_York'). If not provided, uses server timezone.")
 
 
 class RulesetInfo(BaseModel):

@@ -76,6 +76,7 @@ async def test_daily_drive_playlist_deletion_logic():
                 ruleset=None,
                 guidelines="",
                 music_only=True,
+                timezone=None,
                 spotify_client=mock_spotify_client
             )
 
@@ -97,6 +98,7 @@ async def test_daily_drive_playlist_deletion_logic():
                 ruleset=None,
                 guidelines="",
                 music_only=True,
+                timezone=None,
                 spotify_client=mock_spotify_client
             )
 
@@ -177,12 +179,13 @@ async def test_artist_tiers_playlist_generation():
             ruleset=None,
             guidelines="Test Tier Playlist",
             music_only=True,
+            timezone=None,
             spotify_client=mock_spotify_client
         )
 
         # Verify playlist was created
         assert result.playlist_id == "test_playlist"
-        assert result.tracks_count == 10
+        assert result.tracks_count == 8  # Tier limits: 5 (blink) + 2 (relient) + 1 (beth) = 8
 
         # Verify add_items_to_playlist was called
         mock_spotify_client.add_items_to_playlist.assert_called()
@@ -202,10 +205,10 @@ async def test_artist_tiers_playlist_generation():
         beth_count = sum(1 for tid in track_ids if tid.startswith("beth_track_"))
 
         # Verify tier distribution
-        assert blink_count >= 6, f"Expected at least 6 blink-182 tracks, got {blink_count}"
-        assert relient_count <= 3, f"Expected no more than 3 Relient K tracks, got {relient_count}"
-        assert beth_count <= 1, f"Expected no more than 1 Beth Vandal track, got {beth_count}"
-        assert blink_count + relient_count + beth_count == 10
+        assert blink_count <= 5, f"Expected no more than 5 blink-182 tracks (tier 5), got {blink_count}"
+        assert relient_count <= 2, f"Expected no more than 2 Relient K tracks (tier 2), got {relient_count}"
+        assert beth_count <= 1, f"Expected no more than 1 Beth Vandal track (tier 1), got {beth_count}"
+        assert blink_count + relient_count + beth_count == 8
 
         # Delete the playlist when test is complete
         await mock_spotify_client.delete_playlist("test_playlist")

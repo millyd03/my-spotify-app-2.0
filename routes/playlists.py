@@ -46,6 +46,7 @@ async def create_playlist(
         ruleset=matched_rulesets[0] if matched_rulesets else None,
         guidelines=playlist_request.guidelines,
         music_only=playlist_request.music_only,
+        timezone=playlist_request.timezone,
         spotify_client=spotify_client
     )
     
