@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
 from gemini.playlist_generator import generate_playlist
 
 
@@ -53,24 +52,26 @@ async def test_daily_drive_playlist_deletion_logic():
             mock_spotify_client.get_track = AsyncMock(return_value={"id": "track1", "name": "Song 1", "explicit": False})
 
             # First call - no existing daily drive playlist
-            mock_spotify_client.get_user_playlists.side_effect = [
-                [],  # First check - no playlists
-                [{"id": "existing_playlist", "name": "Daily Drive - Monday"}]  # Second check - existing playlist
-            ]
+            # find_user_playlist_by_name will return None for the first creation
+            # and an existing playlist for the second creation
+            mock_spotify_client.find_user_playlist_by_name = AsyncMock(side_effect=[
+                None,
+                {"id": "existing_playlist", "name": "Daily Drive - Monday"}
+            ])
 
             mock_spotify_client.create_playlist.side_effect = [
                 {"id": "playlist_1", "external_urls": {"spotify": "https://open.spotify.com/playlist/playlist_1"}},
                 {"id": "playlist_2", "external_urls": {"spotify": "https://open.spotify.com/playlist/playlist_2"}}
             ]
 
-            # Test first daily drive playlist creation
+            # Test first daily drive playlist creation (short playlist)
             mock_db = MagicMock()
             mock_db.execute = AsyncMock()
             mock_db.commit = AsyncMock()
             result1 = await generate_playlist(
                 db=mock_db,
                 user_id=1,
-                num_songs=20,
+                num_songs=3,
                 is_daily_drive=True,
                 allow_explicit=False,
                 ruleset=None,
@@ -92,7 +93,7 @@ async def test_daily_drive_playlist_deletion_logic():
             result2 = await generate_playlist(
                 db=mock_db,
                 user_id=1,
-                num_songs=20,
+                num_songs=3,
                 is_daily_drive=True,
                 allow_explicit=False,
                 ruleset=None,

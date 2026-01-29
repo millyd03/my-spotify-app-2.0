@@ -16,7 +16,11 @@ async def get_user_token(user_id: int, db: AsyncSession) -> Optional[str]:
         return None
     
     # Check if token is expired
-    if datetime.now(timezone.utc) >= (user.token_expires_at if user.token_expires_at.tzinfo else user.token_expires_at.replace(tzinfo=timezone.utc)):
+    now = datetime.now(timezone.utc)
+    expires_at = user.token_expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if now >= expires_at:
         # Refresh token
         await refresh_user_token(user_id, db)
         user = await get_user_by_id(db, user_id)
