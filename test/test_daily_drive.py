@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
 from gemini.playlist_generator import generate_playlist
 
 
@@ -53,29 +52,32 @@ async def test_daily_drive_playlist_deletion_logic():
             mock_spotify_client.get_track = AsyncMock(return_value={"id": "track1", "name": "Song 1", "explicit": False})
 
             # First call - no existing daily drive playlist
-            mock_spotify_client.get_user_playlists.side_effect = [
-                [],  # First check - no playlists
-                [{"id": "existing_playlist", "name": "Daily Drive - Monday"}]  # Second check - existing playlist
-            ]
+            # find_user_playlist_by_name will return None for the first creation
+            # and an existing playlist for the second creation
+            mock_spotify_client.find_user_playlist_by_name = AsyncMock(side_effect=[
+                None,
+                {"id": "existing_playlist", "name": "Daily Drive - Monday"}
+            ])
 
             mock_spotify_client.create_playlist.side_effect = [
                 {"id": "playlist_1", "external_urls": {"spotify": "https://open.spotify.com/playlist/playlist_1"}},
                 {"id": "playlist_2", "external_urls": {"spotify": "https://open.spotify.com/playlist/playlist_2"}}
             ]
 
-            # Test first daily drive playlist creation
+            # Test first daily drive playlist creation (short playlist)
             mock_db = MagicMock()
             mock_db.execute = AsyncMock()
             mock_db.commit = AsyncMock()
             result1 = await generate_playlist(
                 db=mock_db,
                 user_id=1,
-                num_songs=20,
+                num_songs=3,
                 is_daily_drive=True,
                 allow_explicit=False,
                 ruleset=None,
                 guidelines="",
                 music_only=True,
+                timezone=None,
                 spotify_client=mock_spotify_client
             )
 
@@ -91,12 +93,13 @@ async def test_daily_drive_playlist_deletion_logic():
             result2 = await generate_playlist(
                 db=mock_db,
                 user_id=1,
-                num_songs=20,
+                num_songs=3,
                 is_daily_drive=True,
                 allow_explicit=False,
                 ruleset=None,
                 guidelines="",
                 music_only=True,
+                timezone=None,
                 spotify_client=mock_spotify_client
             )
 
@@ -177,12 +180,13 @@ async def test_artist_tiers_playlist_generation():
             ruleset=None,
             guidelines="Test Tier Playlist",
             music_only=True,
+            timezone=None,
             spotify_client=mock_spotify_client
         )
 
         # Verify playlist was created
         assert result.playlist_id == "test_playlist"
-        assert result.tracks_count == 10
+        assert result.tracks_count == 8  # Tier limits: 5 (blink) + 2 (relient) + 1 (beth) = 8
 
         # Verify add_items_to_playlist was called
         mock_spotify_client.add_items_to_playlist.assert_called()
@@ -202,10 +206,10 @@ async def test_artist_tiers_playlist_generation():
         beth_count = sum(1 for tid in track_ids if tid.startswith("beth_track_"))
 
         # Verify tier distribution
-        assert blink_count >= 6, f"Expected at least 6 blink-182 tracks, got {blink_count}"
-        assert relient_count <= 3, f"Expected no more than 3 Relient K tracks, got {relient_count}"
-        assert beth_count <= 1, f"Expected no more than 1 Beth Vandal track, got {beth_count}"
-        assert blink_count + relient_count + beth_count == 10
+        assert blink_count <= 5, f"Expected no more than 5 blink-182 tracks (tier 5), got {blink_count}"
+        assert relient_count <= 2, f"Expected no more than 2 Relient K tracks (tier 2), got {relient_count}"
+        assert beth_count <= 1, f"Expected no more than 1 Beth Vandal track (tier 1), got {beth_count}"
+        assert blink_count + relient_count + beth_count == 8
 
         # Delete the playlist when test is complete
         await mock_spotify_client.delete_playlist("test_playlist")

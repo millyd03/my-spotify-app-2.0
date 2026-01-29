@@ -4,7 +4,6 @@ from typing import List, Dict, Any, Optional, Tuple
 import google.genai as genai
 import json
 import re
-from datetime import datetime
 
 from config import settings
 from models import ChatMessage, ChatResponse, RulesetCreate, RulesetUpdate
@@ -23,8 +22,7 @@ class ChatHandler:
     """Handles chat conversations using Gemini AI."""
     
     def __init__(self):
-        genai.configure(api_key=settings.gemini_api_key)
-        self.model = genai.GenerativeModel(model_name='gemini-2.5-flash')
+        self.client = genai.Client(api_key=settings.gemini_api_key)
     
     async def process_message(
         self,
@@ -86,7 +84,8 @@ For create_playlist intent:
         "allow_explicit": true,
         "ruleset_name": "ruleset_name",
         "guidelines": "additional description of playlist",
-        "music_only": true/false
+        "music_only": true/false,
+        "timezone": "America/New_York"
     }}
 }}
 
@@ -135,7 +134,7 @@ Conversation history:
 Now respond to the user's latest message:"""
 
         # Generate response
-        response = self.client.models.generate_content(model='gemini-2.5-flash', contents=system_prompt)
+        response = self.client.models.generate_content(model='gemini-2.5-flash-lite', contents=system_prompt)
         response_text = response.text
         
         # Extract intent JSON if present
@@ -157,6 +156,7 @@ Now respond to the user's latest message:"""
                 ruleset_name = data.get("ruleset_name")
                 guidelines = str(data.get("guidelines", "") or "")
                 music_only = data.get("music_only", False)
+                timezone = data.get("timezone")
                 
                 # Get ruleset if specified
                 matched_rulesets = []
@@ -177,6 +177,7 @@ Now respond to the user's latest message:"""
                     ruleset=matched_rulesets[0] if matched_rulesets else None,
                     guidelines=guidelines,
                     music_only=music_only,
+                    timezone=timezone,
                     spotify_client=spotify_client
                 )
                 action_type = "playlist_created"

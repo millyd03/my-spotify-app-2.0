@@ -178,6 +178,14 @@ class SpotifyAPIClient:
                 offset += limit
             
             return playlists
+
+    async def find_user_playlist_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """Find a user's playlist by exact name match. Returns playlist dict or None."""
+        playlists = await self.get_user_playlists()
+        for p in playlists:
+            if p.get("name") == name:
+                return p
+        return None
     
     async def get_playlist_tracks(self, playlist_id: str) -> List[Dict[str, Any]]:
         """Get tracks from a playlist."""
